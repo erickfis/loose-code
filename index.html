@@ -123,14 +123,13 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 </ul>
 </div>
 
-<div class="figure">
-<img src="turbodbc/logo.png" alt="TURBODBC logo" />
-<p class="caption">TURBODBC logo</p>
-</div>
+<p><img src="turbodbc/logo.png" /></p>
 <div id="reasoning" class="section level2">
 <h2>Reasoning</h2>
 <p>In this demo we will upload data to a SQL Server database using <em>TURBODBC</em>.</p>
-<p>The principal reason for turbodbc is: for uploading real data, <em>pandas.to_sql</em> is painful slow, and the workarounds to make it better are pretty hairy, if you ask me. After many hours running in circles around pandas workarounds, I gave up on it, but just because I discovered <em>TURBODBC</em>, this piece of pure love!</p>
+<p>The principal reason for turbodbc is: for uploading real data, <em>pandas.to_sql</em> is painful slow, and the workarounds to make it better are pretty hairy, if you ask me.</p>
+<p>The first time I came across this problem, I had 8 tables with 1.6 milions of rows and 240 columns each. Pandas.to_sql took 1 entire day until I gave up on the upload. So until now I was using the company proprietary tool while trying to get pandas working.</p>
+<p>After many hours running in circles around pandas workarounds, I gave up on it, but just because I discovered <em>TURBODBC</em>, this piece of pure love!</p>
 <p>Get TURBODBC on <a href="https://turbodbc.readthedocs.io/en/latest/index.html" class="uri">https://turbodbc.readthedocs.io/en/latest/index.html</a></p>
 </div>
 <div id="comparison" class="section level2">
@@ -191,7 +190,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <a class="sourceLine" id="cb2-12" data-line-number="12">    <span class="cf">return</span> database_connection</a>
 <a class="sourceLine" id="cb2-13" data-line-number="13"></a>
 <a class="sourceLine" id="cb2-14" data-line-number="14"></a>
-<a class="sourceLine" id="cb2-15" data-line-number="15">pd_connection <span class="op">=</span> credenciais.make_con(mydb)</a></code></pre></div>
+<a class="sourceLine" id="cb2-15" data-line-number="15">pd_connection <span class="op">=</span> make_con(mydb)</a></code></pre></div>
 </div>
 <div id="load-and-treat-some-data" class="section level4">
 <h4>Load and treat some data</h4>
