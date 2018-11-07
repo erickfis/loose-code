@@ -1,6 +1,6 @@
 ---
 title: "ETL process with Python and TURBODBC"
-author: "Erick Gomes Anast·cio"
+author: "Erick Gomes Anast√°cio"
 date: "`r Sys.Date()`"
 output:
   prettydoc::html_pretty:
@@ -8,6 +8,8 @@ output:
     highlight: github
     toc: true
     self_contained: no
+
+encoding: UTF-8
 ---
 
 
