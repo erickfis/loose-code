@@ -6,7 +6,11 @@
 
 In this demo we will upload data to a SQL Server database using *TURBODBC*.
 
-The principal reason for turbodbc is: for uploading real data, *pandas.to_sql* is painful slow, and the workarounds to make it better are pretty hairy, if you ask me. After many hours running in circles around pandas workarounds, I gave up on it, but just because I discovered *TURBODBC*, this piece of pure love!
+The principal reason for turbodbc is: for uploading real data, pandas.to_sql is painful slow, and the workarounds to make it better are pretty hairy, if you ask me.
+
+The first time I came across this problem, I had 8 tables with 1.6 millions of rows and 240 columns each. Pandas.to_sql took 1 entire day until I gave up on the upload. So until now I was using the company proprietary tool while trying to get pandas working.
+
+After many hours running in circles around pandas workarounds, I gave up on it, but just because I discovered TURBODBC, this piece of pure love!
 
 Get TURBODBC on https://turbodbc.readthedocs.io/en/latest/index.html
 
