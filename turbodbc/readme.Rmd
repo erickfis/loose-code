@@ -1,4 +1,4 @@
-# ETL process with python and TURBODBC
+# ETL process with TURBODBC
 
 ![TURBODBC logo](logo.png)
 

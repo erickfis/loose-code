@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+
+<meta charset="utf-8">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="generator" content="pandoc" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<meta name="author" content="Erick Gomes Anastácio" />
+
+<meta name="date" content="2018-11-07" />
+
+<title>ETL process with Python and TURBODBC</title>
+
+
+
+<style type="text/css">code{white-space: pre;}</style>
+<style type="text/css">
+a.sourceLine { display: inline-block; line-height: 1.25; }
+a.sourceLine { pointer-events: none; color: inherit; text-decoration: inherit; }
+a.sourceLine:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode { white-space: pre; position: relative; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+code.sourceCode { white-space: pre-wrap; }
+a.sourceLine { text-indent: -1em; padding-left: 1em; }
+}
+pre.numberSource a.sourceLine
+  { position: relative; left: -4em; }
+pre.numberSource a.sourceLine::before
+  { content: attr(data-line-number);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; pointer-events: all; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {  }
+@media screen {
+a.sourceLine::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+</style>
+
+
+
+<link rel="stylesheet" href="index_files/style.css" type="text/css" />
+
+</head>
+
+<body>
+
+
+
+
+<div id="container">
+<div class="inner">
+<header>
+<h1 class="title toc-ignore">ETL process with Python and TURBODBC</h1>
+<h3 class="author">Erick Gomes Anastácio</h3>
+<h3 class="date">2018-11-07</h3>
+</header>
+
+<hr>
+
+
+<div id="TOC" class="toc">
+<ul>
+<li><a href="#reasoning">Reasoning</a></li>
+<li><a href="#comparison">Comparison</a></li>
+<li><a href="#step-by-step-summary">Step by step summary:</a></li>
+<li><a href="#tools-used">Tools used:</a></li>
+<li><a href="#the-code">The code</a><ul>
+<li><a href="#the-imports">The imports</a></li>
+<li><a href="#create-the-table-using-sqlalchemy">Create the table using sqlAlchemy</a></li>
+<li><a href="#turbodbc-connection">Turbodbc connection</a></li>
+<li><a href="#preparing-sql-comands-and-data-for-turbodbc">Preparing sql comands and data for turbodbc</a></li>
+<li><a href="#writes-data-using-turbodbc">Writes data using turbodbc</a></li>
+<li><a href="#pandas-method-comparison">Pandas method comparison</a></li>
+</ul></li>
+<li><a href="#the-autor">The autor</a></li>
+</ul>
+</div>
+
+<div class="figure">
+<img src="logo.png" alt="TURBODBC logo" />
+<p class="caption">TURBODBC logo</p>
+</div>
+<div id="reasoning" class="section level2">
+<h2>Reasoning</h2>
+<p>In this demo we will upload data to a SQL Server database using <em>TURBODBC</em>.</p>
+<p>The principal reason for turbodbc is: for uploading real data, <em>pandas.to_sql</em> is painful slow, and the workarounds to make it better are pretty hairy, if you ask me. After many hours running in circles around pandas workarounds, I gave up on it, but just because I discovered <em>TURBODBC</em>, this piece of pure love!</p>
+<p>Get TURBODBC on <a href="https://turbodbc.readthedocs.io/en/latest/index.html" class="uri">https://turbodbc.readthedocs.io/en/latest/index.html</a></p>
+</div>
+<div id="comparison" class="section level2">
+<h2>Comparison</h2>
+<p>Quick comparison: in this script, for loading 10000 lines, 77 columns, we have:</p>
+<ul>
+<li><em>pandas.to_sql</em> took almost 200 seconds to finish</li>
+<li><em>turbodbc</em> took only 3 seconds…</li>
+</ul>
+</div>
+<div id="step-by-step-summary" class="section level2">
+<h2>Step by step summary:</h2>
+<p>In this python script, we will:</p>
+<ul>
+<li>create a <em>sqlAlchemy</em> connection to our database in a SQL Server</li>
+<li>load and treat some data (in my case, a DataFrame containing 77 columns, 350k+ lines)</li>
+<li>upload it to our SQL Server using <em>pandas.to_sql</em></li>
+<li>create a <em>turbodbc</em> connection</li>
+<li>upload the same sample of data, but this time using <em>turbodbc</em></li>
+<li>profit!</li>
+</ul>
+</div>
+<div id="tools-used" class="section level2">
+<h2>Tools used:</h2>
+<ul>
+<li>Python 3.6.7 :: Anaconda, Inc.</li>
+<li>TURBODBC version ‘3.0.0’</li>
+<li>sqlAlchemy version ‘1.2.12’</li>
+<li>pandas version ‘0.23.4’</li>
+</ul>
+</div>
+<div id="the-code" class="section level2">
+<h2>The code</h2>
+<div id="the-imports" class="section level3">
+<h3>The imports</h3>
+<div class="sourceCode" id="cb1"><pre class="sourceCode python"><code class="sourceCode python"><a class="sourceLine" id="cb1-1" data-line-number="1"><span class="im">import</span> sqlalchemy</a>
+<a class="sourceLine" id="cb1-2" data-line-number="2"><span class="im">import</span> pandas <span class="im">as</span> pd</a>
+<a class="sourceLine" id="cb1-3" data-line-number="3"><span class="im">import</span> numpy <span class="im">as</span> np</a>
+<a class="sourceLine" id="cb1-4" data-line-number="4"><span class="im">import</span> turbodbc</a>
+<a class="sourceLine" id="cb1-5" data-line-number="5"><span class="im">import</span> credenciais</a>
+<a class="sourceLine" id="cb1-6" data-line-number="6"><span class="im">import</span> time</a></code></pre></div>
+</div>
+<div id="create-the-table-using-sqlalchemy" class="section level3">
+<h3>Create the table using sqlAlchemy</h3>
+<div id="create-connection" class="section level4">
+<h4>Create connection</h4>
+<div class="sourceCode" id="cb2"><pre class="sourceCode python"><code class="sourceCode python"><a class="sourceLine" id="cb2-1" data-line-number="1">mydb <span class="op">=</span> <span class="st">&#39;someDB&#39;</span></a>
+<a class="sourceLine" id="cb2-2" data-line-number="2"></a>
+<a class="sourceLine" id="cb2-3" data-line-number="3"></a>
+<a class="sourceLine" id="cb2-4" data-line-number="4"><span class="kw">def</span> make_con(db):</a>
+<a class="sourceLine" id="cb2-5" data-line-number="5">    <span class="co">&quot;&quot;&quot;Connect to a specified db.&quot;&quot;&quot;</span></a>
+<a class="sourceLine" id="cb2-6" data-line-number="6">    database_connection <span class="op">=</span> sqlalchemy.create_engine(</a>
+<a class="sourceLine" id="cb2-7" data-line-number="7">        <span class="st">&#39;mssql+pymssql://</span><span class="sc">{0}</span><span class="st">:</span><span class="sc">{1}</span><span class="st">@</span><span class="sc">{2}</span><span class="st">/</span><span class="sc">{3}</span><span class="st">&#39;</span>.<span class="bu">format</span>(</a>
+<a class="sourceLine" id="cb2-8" data-line-number="8">            credenciais.myuser, credenciais.mypassword,</a>
+<a class="sourceLine" id="cb2-9" data-line-number="9">            credenciais.myhost, db</a>
+<a class="sourceLine" id="cb2-10" data-line-number="10">            )</a>
+<a class="sourceLine" id="cb2-11" data-line-number="11">        )</a>
+<a class="sourceLine" id="cb2-12" data-line-number="12">    <span class="cf">return</span> database_connection</a>
+<a class="sourceLine" id="cb2-13" data-line-number="13"></a>
+<a class="sourceLine" id="cb2-14" data-line-number="14"></a>
+<a class="sourceLine" id="cb2-15" data-line-number="15">pd_connection <span class="op">=</span> credenciais.make_con(mydb)</a></code></pre></div>
+</div>
+<div id="load-and-treat-some-data" class="section level4">
+<h4>Load and treat some data</h4>
+<p>Substitute my sample.pkl for yours:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode python"><code class="sourceCode python"><a class="sourceLine" id="cb3-1" data-line-number="1">df <span class="op">=</span> pd.read_pickle(<span class="st">&#39;sample.pkl&#39;</span>)</a>
+<a class="sourceLine" id="cb3-2" data-line-number="2"></a>
+<a class="sourceLine" id="cb3-3" data-line-number="3">df.columns <span class="op">=</span> df.columns.<span class="bu">str</span>.strip()</a>
+<a class="sourceLine" id="cb3-4" data-line-number="4">df <span class="op">=</span> df.applymap(<span class="bu">str</span>.strip)</a>
+<a class="sourceLine" id="cb3-5" data-line-number="5">df <span class="op">=</span> df.replace(<span class="st">&#39;&#39;</span>, np.nan)</a>
+<a class="sourceLine" id="cb3-6" data-line-number="6">df <span class="op">=</span> df.dropna(how<span class="op">=</span><span class="st">&#39;all&#39;</span>, axis<span class="op">=</span><span class="dv">0</span>)</a>
+<a class="sourceLine" id="cb3-7" data-line-number="7">df <span class="op">=</span> df.dropna(how<span class="op">=</span><span class="st">&#39;all&#39;</span>, axis<span class="op">=</span><span class="dv">1</span>)</a>
+<a class="sourceLine" id="cb3-8" data-line-number="8">df <span class="op">=</span> df.replace(np.nan, <span class="st">&#39;NA&#39;</span>)  <span class="co"># turbodbc hates null values...</span></a>
+<a class="sourceLine" id="cb3-9" data-line-number="9">df.shape</a></code></pre></div>
+</div>
+<div id="create-table" class="section level4">
+<h4>Create table</h4>
+<p>Using pandas + sqlAlchemy, but just for preparing room for turbodbc:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode python"><code class="sourceCode python"><a class="sourceLine" id="cb4-1" data-line-number="1">table <span class="op">=</span> <span class="st">&#39;testing&#39;</span></a>
+<a class="sourceLine" id="cb4-2" data-line-number="2">df.head().to_sql(table, con<span class="op">=</span>pd_connection, index<span class="op">=</span><span class="va">False</span>)</a></code></pre></div>
+</div>
+</div>
+<div id="turbodbc-connection" class="section level3">
+<h3>Turbodbc connection</h3>
+<div class="sourceCode" id="cb5"><pre class="sourceCode python"><code class="sourceCode python"><a class="sourceLine" id="cb5-1" data-line-number="1">connection <span class="op">=</span> turbodbc.<span class="ex">connect</span>(</a>
+<a class="sourceLine" id="cb5-2" data-line-number="2">                                driver<span class="op">=</span><span class="st">&quot;SQL Server&quot;</span>,</a>
+<a class="sourceLine" id="cb5-3" data-line-number="3">                                server<span class="op">=</span>credenciais.myhost,</a>
+<a class="sourceLine" id="cb5-4" data-line-number="4">                                database<span class="op">=</span>mydb,</a>
+<a class="sourceLine" id="cb5-5" data-line-number="5">                                uid<span class="op">=</span>credenciais.myuser,</a>
+<a class="sourceLine" id="cb5-6" data-line-number="6">                                pwd<span class="op">=</span>credenciais.mypassword</a>
+<a class="sourceLine" id="cb5-7" data-line-number="7">                            )</a></code></pre></div>
+</div>
+<div id="preparing-sql-comands-and-data-for-turbodbc" class="section level3">
+<h3>Preparing sql comands and data for turbodbc</h3>
+<div class="sourceCode" id="cb6"><pre class="sourceCode python"><code class="sourceCode python"><a class="sourceLine" id="cb6-1" data-line-number="1"><span class="kw">def</span> turbo_write(mydb, df, table):</a>
+<a class="sourceLine" id="cb6-2" data-line-number="2">    <span class="co">&quot;&quot;&quot;Use turbodbc to insert data into sql.&quot;&quot;&quot;</span></a>
+<a class="sourceLine" id="cb6-3" data-line-number="3">    start <span class="op">=</span> time.time()</a>
+<a class="sourceLine" id="cb6-4" data-line-number="4">    <span class="co"># preparing columns</span></a>
+<a class="sourceLine" id="cb6-5" data-line-number="5">    colunas <span class="op">=</span> <span class="st">&#39;(&#39;</span></a>
+<a class="sourceLine" id="cb6-6" data-line-number="6">    colunas <span class="op">+=</span> <span class="st">&#39;, &#39;</span>.join(df.columns)</a>
+<a class="sourceLine" id="cb6-7" data-line-number="7">    colunas <span class="op">+=</span> <span class="st">&#39;)&#39;</span></a>
+<a class="sourceLine" id="cb6-8" data-line-number="8"></a>
+<a class="sourceLine" id="cb6-9" data-line-number="9">    <span class="co"># preparing value place holders</span></a>
+<a class="sourceLine" id="cb6-10" data-line-number="10">    val_place_holder <span class="op">=</span> [<span class="st">&#39;?&#39;</span> <span class="cf">for</span> col <span class="kw">in</span> df.columns]</a>
+<a class="sourceLine" id="cb6-11" data-line-number="11">    sql_val <span class="op">=</span> <span class="st">&#39;(&#39;</span></a>
+<a class="sourceLine" id="cb6-12" data-line-number="12">    sql_val <span class="op">+=</span> <span class="st">&#39;, &#39;</span>.join(val_place_holder)</a>
+<a class="sourceLine" id="cb6-13" data-line-number="13">    sql_val <span class="op">+=</span> <span class="st">&#39;)&#39;</span></a>
+<a class="sourceLine" id="cb6-14" data-line-number="14"></a>
+<a class="sourceLine" id="cb6-15" data-line-number="15">    <span class="co"># writing sql query for turbodbc</span></a>
+<a class="sourceLine" id="cb6-16" data-line-number="16">    sql <span class="op">=</span> <span class="ss">f&quot;&quot;&quot;</span></a>
+<a class="sourceLine" id="cb6-17" data-line-number="17"><span class="ss">    INSERT INTO </span><span class="sc">{</span>mydb<span class="sc">}</span><span class="ss">.dbo.</span><span class="sc">{</span>table<span class="sc">}</span><span class="ss"> </span><span class="sc">{</span>colunas<span class="sc">}</span></a>
+<a class="sourceLine" id="cb6-18" data-line-number="18"><span class="ss">    VALUES </span><span class="sc">{</span>sql_val<span class="sc">}</span></a>
+<a class="sourceLine" id="cb6-19" data-line-number="19"><span class="ss">    &quot;&quot;&quot;</span></a>
+<a class="sourceLine" id="cb6-20" data-line-number="20"></a>
+<a class="sourceLine" id="cb6-21" data-line-number="21">    <span class="co"># writing array of values for turbodbc</span></a>
+<a class="sourceLine" id="cb6-22" data-line-number="22">    valores_df <span class="op">=</span> [df[col].values <span class="cf">for</span> col <span class="kw">in</span> df.columns]</a>
+<a class="sourceLine" id="cb6-23" data-line-number="23"></a>
+<a class="sourceLine" id="cb6-24" data-line-number="24">    <span class="co"># cleans the previous head insert</span></a>
+<a class="sourceLine" id="cb6-25" data-line-number="25">    <span class="cf">with</span> connection.cursor() <span class="im">as</span> cursor:</a>
+<a class="sourceLine" id="cb6-26" data-line-number="26">        cursor.execute(<span class="ss">f&quot;delete from </span><span class="sc">{</span>mydb<span class="sc">}</span><span class="ss">.dbo.</span><span class="sc">{</span>table<span class="sc">}</span><span class="ss">&quot;</span>)</a>
+<a class="sourceLine" id="cb6-27" data-line-number="27">        connection.commit()</a>
+<a class="sourceLine" id="cb6-28" data-line-number="28"></a>
+<a class="sourceLine" id="cb6-29" data-line-number="29">    <span class="co"># inserts data, for real</span></a>
+<a class="sourceLine" id="cb6-30" data-line-number="30">    <span class="cf">with</span> connection.cursor() <span class="im">as</span> cursor:</a>
+<a class="sourceLine" id="cb6-31" data-line-number="31">        <span class="cf">try</span>:</a>
+<a class="sourceLine" id="cb6-32" data-line-number="32">            cursor.executemanycolumns(sql, valores_df)</a>
+<a class="sourceLine" id="cb6-33" data-line-number="33">            connection.commit()</a>
+<a class="sourceLine" id="cb6-34" data-line-number="34">        <span class="cf">except</span> <span class="pp">Exception</span>:</a>
+<a class="sourceLine" id="cb6-35" data-line-number="35">            connection.rollback()</a>
+<a class="sourceLine" id="cb6-36" data-line-number="36">            <span class="bu">print</span>(<span class="st">&#39;something went wrong&#39;</span>)</a>
+<a class="sourceLine" id="cb6-37" data-line-number="37"></a>
+<a class="sourceLine" id="cb6-38" data-line-number="38">    stop <span class="op">=</span> time.time() <span class="op">-</span> start</a>
+<a class="sourceLine" id="cb6-39" data-line-number="39">    <span class="cf">return</span> <span class="bu">print</span>(<span class="ss">f&#39;finished in </span><span class="sc">{</span>stop<span class="sc">}</span><span class="ss"> seconds&#39;</span>)</a></code></pre></div>
+</div>
+<div id="writes-data-using-turbodbc" class="section level3">
+<h3>Writes data using turbodbc</h3>
+<p>I’ve got 10000 lines (77 columns) in 3 seconds:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode python"><code class="sourceCode python"><a class="sourceLine" id="cb7-1" data-line-number="1">turbo_write(mydb, df.sample(<span class="dv">10000</span>), table)</a></code></pre></div>
+</div>
+<div id="pandas-method-comparison" class="section level3">
+<h3>Pandas method comparison</h3>
+<p>I’ve got the same 10000 lines (77 columns) in 198 seconds…</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode python"><code class="sourceCode python"><a class="sourceLine" id="cb8-1" data-line-number="1">table <span class="op">=</span> <span class="st">&#39;pd_testing&#39;</span></a>
+<a class="sourceLine" id="cb8-2" data-line-number="2"></a>
+<a class="sourceLine" id="cb8-3" data-line-number="3"></a>
+<a class="sourceLine" id="cb8-4" data-line-number="4"><span class="kw">def</span> pandas_comparisson(df, table):</a>
+<a class="sourceLine" id="cb8-5" data-line-number="5">    <span class="co">&quot;&quot;&quot;Load data using pandas.&quot;&quot;&quot;</span></a>
+<a class="sourceLine" id="cb8-6" data-line-number="6">    start <span class="op">=</span> time.time()</a>
+<a class="sourceLine" id="cb8-7" data-line-number="7">    df.to_sql(table, con<span class="op">=</span>pd_connection, index<span class="op">=</span><span class="va">False</span>)</a>
+<a class="sourceLine" id="cb8-8" data-line-number="8">    stop <span class="op">=</span> time.time() <span class="op">-</span> start</a>
+<a class="sourceLine" id="cb8-9" data-line-number="9">    <span class="cf">return</span> <span class="bu">print</span>(<span class="ss">f&#39;finished in </span><span class="sc">{</span>stop<span class="sc">}</span><span class="ss"> seconds&#39;</span>)</a>
+<a class="sourceLine" id="cb8-10" data-line-number="10"></a>
+<a class="sourceLine" id="cb8-11" data-line-number="11"></a>
+<a class="sourceLine" id="cb8-12" data-line-number="12">pandas_comparisson(df.sample(<span class="dv">10000</span>), table)</a></code></pre></div>
+</div>
+</div>
+<div id="the-autor" class="section level2">
+<h2>The autor</h2>
+<p>Written on 2018-11-07 by <em>Erick Gomes AnastÃ¡cio</em></p>
+<p>Data Scientist, physicist, living in SÃ£o Paulo, Brazil.</p>
+<p>Senior Consultant at Control Risks</p>
+<p><em><a href="mailto:erickfis@gmail.com">erickfis@gmail.com</a></em></p>
+<p><a href="https://erickfis.github.io/portfolio/" class="uri">https://erickfis.github.io/portfolio/</a></p>
+<p><a href="https://www.linkedin.com/in/erick-anastÃ¡cio-15241717/" class="uri">https://www.linkedin.com/in/erick-anastÃ¡cio-15241717/</a></p>
+</div>
+</div>
+</div>
+
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
