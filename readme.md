@@ -1,5 +1,10 @@
 # Utilities and loose code
 
+Please check
+
+https://erickfis.github.io/loose-code/
+
+
 ## The autor
 
 *Erick Gomes Anastácio*
