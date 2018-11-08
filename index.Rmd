@@ -19,15 +19,15 @@ encoding: UTF-8
 
 In this demo we will upload data to a SQL Server database using *TURBODBC*.
 
-The principal reason for turbodbc is: for uploading real data, *pandas.to_sql* is painful slow, and the workarounds to make it better are pretty hairy, if you ask me. 
+The principal reason for turbodbc is: for uploading real data, *pandas.to_sql* is painful slow, and the workarounds to make it better are pretty hairy, if you ask me.
 
 The first time I came across this problem, I had 8 tables with 1.6 millions of rows and 240 columns each. Pandas.to_sql took 1 entire day until I gave up on the upload. So until now I was using the company proprietary tool while trying to get pandas working.
 
 After many hours running in circles around pandas workarounds, I gave up on it, but just because I discovered *TURBODBC*, this piece of pure love!
 
 
-
 Get TURBODBC on https://turbodbc.readthedocs.io/en/latest/index.html
+
 
 ## Comparison
 
@@ -40,19 +40,24 @@ Quick comparison: in this script, for loading 10000 lines, 77 columns, we have:
 
 In this python script, we will:
 
+- load and treat some data using pandas (in my case, a DataFrame containing 77 columns, 350k+ lines)
 - create a *sqlAlchemy* connection to our database in a SQL Server
-- load and treat some data (in my case, a DataFrame containing 77 columns, 350k+ lines)
-- upload it to our SQL Server using *pandas.to_sql*
+- use *pandas.to_sql* to insert the head of our data, to automate the table creation
 - create a *turbodbc* connection
-- upload the same sample of data, but this time using *turbodbc*
+- create *turbodbc* code for data insertion
+- upload a sample of data using *turbodbc*
+- upload the same sample of data, but this time using *sqlAlchemy*
+- compare user time for both methods
 - profit!
 
-## Tools used:
+## Environment and conditions
 
 - Python 3.6.7 :: Anaconda, Inc.
 - TURBODBC version '3.0.0'
 - sqlAlchemy version '1.2.12'
 - pandas version '0.23.4'
+- Microsoft SQL Server 2014
+- **user with bulk operations privileges**
 
 
 ## The code
@@ -68,9 +73,34 @@ import credenciais
 import time
 ```
 
+
+### Load and treat some data
+
+Substitute my sample.pkl for yours:
+
+```python
+df = pd.read_pickle('sample.pkl')
+
+df.columns = df.columns.str.strip()  # remove white spaces around column names
+df = df.applymap(str.strip) # remove white spaces around values
+df = df.replace('', np.nan)  # map nans, to drop NAs rows and columns later
+df = df.dropna(how='all', axis=0)  # remove rows containing only NAs
+df = df.dropna(how='all', axis=1)  # remove columns containing only NAs
+df = df.replace(np.nan, 'NA')  # turbodbc hates null values...
+```
+
+
 ### Create the table using sqlAlchemy
 
-#### Create connection
+Unfortunatelly, turbodbc requires a lot of overhead with a lot of sql manual labor, for creating the tables and for inserting data on it.
+
+Fortunatelly, Python is pure joy and we can automate this process of writing sql code.
+
+The fisrt step is creating the table which will receive our data. However, creating the table manually writing sql code can be problematic if your table has more than a few columns. In my case, very often the tables have 240 columns!
+
+This is where sqlAlchemy and pandas still can help us: pandas is bad for writing a large number of rows (10000 in this example), but what about just 6 rows, the head of the table? This way, we automate the process of creating the tables.
+
+#### Create sqlAlchemy connection
 
 ```python
 mydb = 'someDB'
@@ -90,33 +120,21 @@ def make_con(db):
 pd_connection = make_con(mydb)
 ```
 
-#### Load and treat some data
 
-Substitute my sample.pkl for yours:
+#### Create table on SQL Server
 
-```python
-df = pd.read_pickle('sample.pkl')
-
-df.columns = df.columns.str.strip()
-df = df.applymap(str.strip)
-df = df.replace('', np.nan)
-df = df.dropna(how='all', axis=0)
-df = df.dropna(how='all', axis=1)
-df = df.replace(np.nan, 'NA')  # turbodbc hates null values...
-df.shape
-```
-
-#### Create table
-
-Using pandas + sqlAlchemy, but just for preparing room for turbodbc:
-
+Using pandas + sqlAlchemy, but just for preparing room for turbodbc as previously mentioned. Please note that *df.head()* here: we are using pandas + sqlAlchemy for inserting only 6 rows of our data. This will run pretty fast and is being done to automate the table creation.
 
 ```python
 table = 'testing'
 df.head().to_sql(table, con=pd_connection, index=False)
 ```
 
-### Turbodbc connection
+### Turbodbc workflow
+
+Now that the table is already in place, let's get serious here
+
+#### Turbodbc connection
 
 ```python
 connection = turbodbc.connect(
@@ -128,7 +146,44 @@ connection = turbodbc.connect(
                             )
 ```
 
-### Preparing sql comands and data for turbodbc
+#### Preparing sql comands and data for turbodbc
+
+Turbodbc very basic usage goes like:
+
+```python
+parameter_sets = [[42, 17],
+                   [23, 19],
+                   [314, 271]]
+cursor.executemany("INSERT INTO TABLE my_integer_table VALUES (?, ?)",
+                    parameter_sets)
+```
+Extracted from https://turbodbc.readthedocs.io/en/latest/pages/getting_started.html
+
+
+Another good demonstration on how to use it, this time with DataFrames - this DataFrame has 4 columns:
+
+```python
+test_query = """
+INSERT INTO [db_name].[schema].[test] (id,transaction_dt,units,measures)
+VALUES (?,?,?,?)
+"""
+
+cursor.executemanycolumns(test_query,
+                            [
+                            df_test['id'].values,
+                            df_test['transaction_dt'].values,
+                            df_test['units'].values,
+                            df_test['measures'].values
+                            ]
+)
+```
+
+Extracted from this [post](https://stackoverflow.com/questions/48006551/speeding-up-pandas-dataframe-to-sql-with-fast-executemany-of-pyodbc/53196099#53196099) on stackoverflow, thanks to [Pylander](https://stackoverflow.com/users/4713504/pylander) !
+
+As you can see, this is ok for 4 columns of data, but what about 77 (in this particular case)? Will you manually type in all the 77 column names and all the 77 place holders? Well, we don't need to.
+
+Let's automate this code creation, being creative:
+
 
 ```python
 def turbo_write(mydb, df, table):
@@ -173,7 +228,7 @@ def turbo_write(mydb, df, table):
 
 ```
 
-### Writes data using turbodbc
+#### Writing data using turbodbc
 
 I've got 10000 lines (77 columns) in 3 seconds:
 
@@ -181,7 +236,7 @@ I've got 10000 lines (77 columns) in 3 seconds:
 turbo_write(mydb, df.sample(10000), table)
 ```
 
-### Pandas method comparison
+#### Pandas method comparison
 
 I've got the same 10000 lines (77 columns) in 198 seconds...
 
